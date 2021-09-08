@@ -23,62 +23,22 @@ from collections import Counter
 
 
 # Loading datasets
-df = pd.read_csv("data/Datafiniti_Amazon_Consumer_Reviews_of_Amazon_Products_May19.csv")
+df = pd.read_csv("data/dataset.csv")
 
 
-# Keep meaningful columns
-clean_df = df[['asins', 'name', 'primaryCategories', 'reviews.rating.1', 'reviews.text']]
-
-
-# Remove products with few reviews
-reviews_by_product = df.groupby(df.name)['reviews.text'].agg('count').reset_index().sort_values(by='reviews.text', ascending=False)
-high_reviewed_prods = reviews_by_product[reviews_by_product['reviews.text']>=50]['name'].unique().tolist()
-clean_df = clean_df[clean_df['name'].isin(high_reviewed_prods)]
-
-
-products = ['Amazon Tap Smart Assistant Alexaenabled (black) Brand New',
-       'All-New Fire HD 8 Kids Edition Tablet, 8 HD Display, 32 GB, Blue Kid-Proof Case',
-       'Amazon Fire HD 8 with Alexa (8" HD Display Tablet)',
-       'All-New Fire HD 8 Tablet with Alexa, 8 HD Display, 16 GB, Marine Blue - with Special Offers',
-       'All-New Fire HD 8 Kids Edition Tablet, 8 HD Display, 32 GB, Pink Kid-Proof Case',
-       'Kindle E-reader - White, 6 Glare-Free Touchscreen Display, Wi-Fi - Includes Special Offers',
-       'All-New Fire HD 8 Tablet with Alexa, 8 HD Display, 32 GB, Marine Blue - with Special Offers',
-       'Kindle Voyage E-reader, 6 High-Resolution Display (300 ppi) with Adaptive Built-in Light, PagePress Sensors, Wi-Fi - Includes Special Offers',
-       'All-New Fire 7 Tablet with Alexa, 7" Display, 8 GB - Marine Blue',
-       'Fire Tablet, 7 Display, Wi-Fi, 16 GB - Includes Special Offers, Black',
-       'AmazonBasics AAA Performance Alkaline Batteries (36 Count)',
-       'Fire HD 10 Tablet, 10.1 HD Display, Wi-Fi, 16 GB - Includes Special Offers, Silver Aluminum',
-       'Fire Tablet with Alexa, 7 Display, 16 GB, Blue - with Special Offers',
-       'All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 16 GB - Includes Special Offers, Black',
-       'Fire Kids Edition Tablet, 7 Display, Wi-Fi, 16 GB, Pink Kid-Proof Case',
-       'Kindle Oasis E-reader with Leather Charging Cover - Black, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers',
-       'Kindle Oasis E-reader with Leather Charging Cover - Merlot, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers',
-       'Kindle Oasis E-reader with Leather Charging Cover - Walnut, 6 High-Resolution Display (300 ppi), Wi-Fi - Includes Special Offers',
-       'AmazonBasics AA Performance Alkaline Batteries (48 Count) - Packaging May Vary',
-       'Fire HD 8 Tablet with Alexa, 8 HD Display, 16 GB, Tangerine - with Special Offers',
-       'All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 32 GB - Includes Special Offers, Blue',
-       'Fire Tablet with Alexa, 7 Display, 16 GB, Magenta - with Special Offers',
-       'Fire HD 8 Tablet with Alexa, 8 HD Display, 32 GB, Tangerine - with Special Offers',
-       'All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 32 GB - Includes Special Offers, Black',
-       'Fire Kids Edition Tablet, 7 Display, Wi-Fi, 16 GB, Blue Kid-Proof Case',
-       'Fire Kids Edition Tablet, 7 Display, Wi-Fi, 16 GB, Green Kid-Proof Case',
-       'All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 32 GB - Includes Special Offers, Magenta',
-       'All-New Fire HD 8 Tablet, 8 HD Display, Wi-Fi, 16 GB - Includes Special Offers, Blue']
-
-# Getting text polarity and subjectivity
-
-clean_df['polarity'] = [TextBlob(review).sentiment.polarity for review in clean_df['reviews.text'].tolist()]
-clean_df['subjectivity'] = [TextBlob(review).sentiment.subjectivity for review in clean_df['reviews.text'].tolist()]
-
+products = df.title.unique().tolist()
 
 # plotting function
 
-def plot_wordclouds(product):
+def plot_wordclouds_dataset(product):
     
-    product_reviews = clean_df[clean_df.name == product]
+    product_reviews = df[df.title == product]
+    
+    #getting product title
+    product = df[df['title']==product].title.unique()[0]
     
     # updating stopwords for non meaningful words
-    reviews = str([i for i in product_reviews['reviews.text']])
+    reviews = str([i for i in product_reviews['content']])
     words= nltk.tokenize.word_tokenize(reviews)
     reviews_words= [word for word in words if word.isalnum()]
     counter = Counter(reviews_words)
@@ -90,48 +50,77 @@ def plot_wordclouds(product):
     # plotting output
     figure, axis = plt.subplots(2, 2, figsize=(20,15))
     figure.suptitle(str('Analysis for: '+product), fontsize=20)
-    
+    title_font_size = 25
+    sns.set_theme(style="whitegrid")
     
     #Plotting star review
-    total_reviews = pd.DataFrame(product_reviews.groupby(product_reviews['reviews.rating.1'])['reviews.text'].agg('count'))
+    total_reviews = pd.DataFrame(product_reviews.groupby(product_reviews['rating'])['content'].agg('count'))
     labels = total_reviews.index.to_list()
-    data = total_reviews['reviews.text']
+    data = total_reviews['content']
     
-    colors = sns.color_palette('YlOrBr_r')[0:5]
+    plt.figure(figsize=(15,8))
+    colors = sns.color_palette('pastel')[0:5]
     axis[0,0].pie(data, labels = labels, colors = colors, autopct='%.0f%%')
-    axis[0,0].set_title("Number of reviews by star score", fontsize=15)
+    axis[0,0].set_title("Number of reviews by star score", fontsize=title_font_size)
     axis[0,0].legend()    
     
     #plotting overall sentiment
-    axis[0,1].hist(product_reviews.polarity)
-    axis[0,1].set_title("Overall review sentiment", fontsize=15)
+    pol_sub = pd.DataFrame({'Name':['Comment positivity', 'Comment subjectivity'], 'Values':[np.median(product_reviews.polarity), np.median(product_reviews.subjectivity)]})
+    
+    sns.set_color_codes("pastel")
+    sns.barplot(x="Values", y="Name", data=pol_sub, label="Total", color="b", ax=axis[0,1])
+    axis[0,1].set_xticks([-1,0,1])
+    axis[0,1].set_xticklabels(['Low','Neutral','High'])
+    axis[0,1].set(xlim=(-1, 1), ylabel="",xlabel="")
+    axis[0,1].set_title("Overall review sentiment & subjectiveness", fontsize=title_font_size)
+    sns.despine(left=True, bottom=True)
     
     
-    #plotting negative reviews cloud
-    negative_reviews = product_reviews[(product_reviews['polarity']<product_reviews['polarity'].quantile(.1))&
-                                   (product_reviews['reviews.rating.1'].isin([1,2]))]
+    ######## plotting negative reviews cloud
     
-    negative_reviews_string = str([i for i in negative_reviews['reviews.text']])
+    #getting negative reviews
+    negative_reviews = product_reviews[(product_reviews['polarity']<product_reviews['polarity'].quantile(.1))]
+    negative_reviews_string = str([i for i in negative_reviews['content']])
     
-    #Create negative wordcloud
-    cloud = WordCloud(background_color='white', stopwords=my_stop_words).generate(negative_reviews_string)
+    negative_blob = TextBlob(negative_reviews_string)
+    NounPhrases = negative_blob.noun_phrases
+    # Creating an empty list to hold new values
+    # combining the noun phrases using underscore to visualize it as wordcloud
+    NewNounList=[]
+    for words in NounPhrases:
+        NewNounList.append(words.replace(" ", "_"))
+        
+    # Converting list into a string to plot wordcloud
+    NegativeNewNounString=' '.join(NewNounList)
+    negative_cloud = WordCloud(stopwords=my_stop_words, background_color='white', colormap='Reds').generate(NegativeNewNounString)
+    
+    ######## plotting positive reviews cloud
+    
+    #
+    positive_reviews = product_reviews[(product_reviews['polarity']>product_reviews['polarity'].quantile(.9))]
+    positive_reviews_string = str([i for i in positive_reviews['content']])
+    
+    positive_blob = TextBlob(positive_reviews_string)
+    NounPhrases = positive_blob.noun_phrases
+    # Creating an empty list to hold new values
+    # combining the noun phrases using underscore to visualize it as wordcloud
+    NewNounList=[]
+    for words in NounPhrases:
+        NewNounList.append(words.replace(" ", "_"))
+        
+    # Converting list into a string to plot wordcloud
+    PositiveNewNounString=' '.join(NewNounList)
+    
+    positive_cloud = WordCloud(stopwords=my_stop_words, background_color='white', colormap='Greens_r').generate(PositiveNewNounString)
     
     # Plot negative wordcloud
-    axis[1,0].set_title("What negative reviews talk about...", fontsize=15)
-    axis[1,0].imshow(cloud, interpolation='bilinear') 
+    axis[1,0].set_title("What negative reviews talk about...", fontsize=title_font_size)
+    axis[1,0].imshow(negative_cloud, interpolation='bilinear')
     axis[1,0].axis("off")
     
-    #plotting positive reviews cloud
-    positive_reviews = product_reviews[(product_reviews['polarity']>product_reviews['polarity'].quantile(.9))&
-                                   (product_reviews['reviews.rating.1'].isin([4,5]))]
-    positive_reviews_string = str([i for i in positive_reviews['reviews.text']])
-    
-    #Create positive wordcloud
-    cloud = WordCloud(background_color='white', stopwords=my_stop_words).generate(positive_reviews_string)
-    
     # Plot positive wordcloud
-    axis[1,1].set_title("What positive reviews talk about...", fontsize=15)
-    axis[1,1].imshow(cloud, interpolation='bilinear') 
+    axis[1,1].set_title("What positive reviews talk about...", fontsize=title_font_size)
+    axis[1,1].imshow(positive_cloud, interpolation='bilinear') 
     axis[1,1].axis("off")
     
     plt.show()
@@ -139,8 +128,11 @@ def plot_wordclouds(product):
     return figure
     
 
-st.title('My title')
+st.title('🌳🐒 Product Jungle Gibber Analizer 🐒🌳')
 
-item = st.selectbox('Select a product to review',products)
+st.write("On 1995, Amazon.com, Inc. started letting customer post both negative and positive reviews to the products they bought. This move was considered nuts by other retailers, but Amazon vision went far beyond sales: they understood the valuer of earning people's trust by enabling to make smart and informed purchases.\n\n\n This project aims to build towards this purpuse by enabling customers to get a brief overview of customer's feelings related to products.\n\n The below dashboard is formed by 3 components:\n\n\n 1) Star rating distribution. \n\n 2) Reviews positiveness & subjectivity: This section evaluates customer sentiments through machine learning techniques to get an overall idea of customer's opinions regarding a product.\n\n 3) Recurrent positive & Negative comments: Know what people are saying regarding a product.")
 
-st.write(plot_wordclouds(item))
+item = st.selectbox('Start by selecting a product to review:',products)
+
+st.write(plot_wordclouds_dataset(item))
+
